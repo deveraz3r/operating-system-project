@@ -136,9 +136,21 @@ void* simulate_worker_behavior(void* arg) {
             sleep(2); // Simulate task duration
             worker->energy -= 20; // Decrease energy after completing the task
             cout << worker->name << " completed task: " << task << ".\n";
-        } else {
-            cout << worker->name << " waiting for resources.\n";
+        } else  {
+            // Re-add task to the queue if resources are unavailable
+            pthread_mutex_lock(&task_mutex);
+            if (task == "Foundation laying") {
+                high_priority_queue.push(task);
+            } else if (task == "General construction") {
+                medium_priority_queue.push(task);
+            } else if (task == "Finishing touches") {
+                low_priority_queue.push(task);
+            }
+            pthread_mutex_unlock(&task_mutex);
+            
+            cout << worker->name << " waiting for resources to perform task: " << task << ".\n";
             sleep(1); // Wait for resources
+            continue;
         }
     }
 }
