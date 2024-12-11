@@ -20,24 +20,33 @@ queue<string> high_priority_queue;
 queue<string> medium_priority_queue;
 queue<string> low_priority_queue;
 
+//Skill enum
+enum Skill {
+  LOW,
+  MEDIUM,
+  HIGH
+};
+
 // Worker Data
 struct Worker {
     string name;
+    Skill skill;
     int energy = 100; // Full energy is 100
     bool isWorking = false;
 };
-
 vector<Worker> workers;
 
-// Helper Functions
+//Helper Functions
 void initialize_resources() {
     cout << "Resources initialized.\n";
 }
 
-void initialize_workers(int num_workers) {
-    for (int i = 0; i < num_workers; ++i) {
-        workers.push_back({"Worker-" + to_string(i + 1), 100, false});
-    }
+void initialize_workers() {
+    workers.push_back({"Worker-1", Skill::HIGH, 100, false});
+    workers.push_back({"Worker-2", Skill::MEDIUM, 100, false});
+    workers.push_back({"Worker-3", Skill::LOW, 100, false});
+    workers.push_back({"Worker-4", Skill::LOW, 100, false});
+    workers.push_back({"Worker-5", Skill::MEDIUM, 100, false});
     cout << "Workers initialized.\n";
 }
 
@@ -149,7 +158,7 @@ void* simulate_worker_behavior(void* arg) {
             pthread_mutex_unlock(&task_mutex);
             
             cout << worker->name << " waiting for resources to perform task: " << task << ".\n";
-            sleep(1); // Wait for resources
+            sleep(2); // Wait for resources
             continue;
         }
     }
@@ -175,13 +184,13 @@ void* monitor_site_status(void* arg) {
 // Main Execution
 int main() {
     initialize_resources();
-    initialize_workers(5);
+    initialize_workers();
     initialize_tasks();
 
     vector<pthread_t> worker_threads;
-    for (auto& worker : workers) {
+    for (size_t i = 0; i < workers.size(); ++i) {
         pthread_t worker_thread;
-        pthread_create(&worker_thread, NULL, simulate_worker_behavior, (void*)&worker);
+        pthread_create(&worker_thread, NULL, simulate_worker_behavior, (void*)&workers[i]);
         worker_threads.push_back(worker_thread);
     }
 
