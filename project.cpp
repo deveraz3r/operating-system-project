@@ -3,12 +3,13 @@
 #include <queue>
 #include <vector>
 #include <string>
-#include <unistd.h> // For sleep
+#include <unistd.h>
 using namespace std;
 
 // Global Variables
 int bricks = 10;
 int cement = 10;
+bool isCompleted = false;   //notify all process the completion of tasks.
 
 // Mutex for resource synchronization
 pthread_mutex_t resource_mutex = PTHREAD_MUTEX_INITIALIZER;
@@ -24,7 +25,7 @@ queue<string> low_priority_queue;
 enum Skill {
   LOW,
   MEDIUM,
-  HIGH
+  HIGH,
 };
 
 // Worker Data
@@ -58,28 +59,29 @@ void initialize_tasks() {
 }
 
 // Task Scheduling with Task Mutex
-string assign_task() {
+string assign_task(Worker* worker) {
     pthread_mutex_lock(&task_mutex); // Lock task mutex
 
-    if (!high_priority_queue.empty()) {
+    if (!high_priority_queue.empty() && worker->skill==Skill::HIGH) {
         string task = high_priority_queue.front();
         high_priority_queue.pop();
         pthread_mutex_unlock(&task_mutex);
         return task;
     }
-    if (!medium_priority_queue.empty()) {
+    if (!medium_priority_queue.empty() && worker->skill==Skill::MEDIUM) {
         string task = medium_priority_queue.front();
         medium_priority_queue.pop();
         pthread_mutex_unlock(&task_mutex);
         return task;
     }
-    if (!low_priority_queue.empty()) {
+    if (!low_priority_queue.empty() && worker->skill==Skill::LOW) {
         string task = low_priority_queue.front();
         low_priority_queue.pop();
         pthread_mutex_unlock(&task_mutex);
         return task;
     }
 
+    isCompleted = true; //all tasks are completed
     pthread_mutex_unlock(&task_mutex);
     return "";
 }
@@ -109,7 +111,7 @@ bool allocate_resources() {
 }
 
 void* replenish_resources(void *) {
-    while (true) {
+    while (!isCompleted) {
         sleep(5); // Simulate replenishment delay
         pthread_mutex_lock(&resource_mutex);
         bricks += 5; // Add 5 units of bricks
@@ -124,7 +126,7 @@ void* replenish_resources(void *) {
 void* simulate_worker_behavior(void* arg) {
     Worker* worker = (Worker*)arg;
 
-    while (true) {
+    while (!isCompleted) {
         if (worker->energy <= 0) {
             cout << worker->name << " is on a break to restore energy.\n";
             sleep(3); // Simulate break time
@@ -132,7 +134,7 @@ void* simulate_worker_behavior(void* arg) {
             continue;
         }
 
-        string task = assign_task();
+        string task = assign_task(worker);
         if (task.empty()) {
             worker->isWorking = false;
             sleep(1); // Wait for new tasks
@@ -162,11 +164,12 @@ void* simulate_worker_behavior(void* arg) {
             continue;
         }
     }
+    return NULL;
 }
 
 // Monitor Site Status
 void* monitor_site_status(void* arg) {
-    while (true) {
+    while (!isCompleted) {
         sleep(10); // Simulate monitoring interval
         pthread_mutex_lock(&resource_mutex);
         cout << "---- Site Status ----\n";
@@ -179,6 +182,7 @@ void* monitor_site_status(void* arg) {
         cout << "---------------------\n";
         pthread_mutex_unlock(&resource_mutex);
     }
+    return NULL;
 }
 
 // Main Execution
@@ -201,11 +205,16 @@ int main() {
     pthread_create(&monitor_thread, NULL, monitor_site_status, NULL);
 
     // Wait for all threads to finish (manual termination required)
-    for (auto& th : worker_threads) {
-        pthread_join(th, NULL);
+    for (size_t i = 0; i < worker_threads.size(); ++i) {
+        pthread_join(worker_threads[i], NULL);
     }
     pthread_join(resource_thread, NULL);
     pthread_join(monitor_thread, NULL);
+
+    //show remaning tasks and resources
+    cout << "--------------All tasks are completed -----------------\n";
+    cout << "All tasks completed? " << (high_priority_queue.empty() && high_priority_queue.empty() && high_priority_queue.empty())? "yes" : "no";
+    cout << "\nBricks: " << bricks << ", Cement: " << cement << "\n";
 
     return 0;
 }
